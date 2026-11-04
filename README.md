@@ -1,4 +1,13 @@
 # RDP Wrapper
+
+## Desktop session picker in this fork
+
+This fork adds a large-text session picker for local console and RDP desktops belonging to the signed-in account. It opens after local sign-in, unlock, and RDP reconnection, and supports switching between existing desktops with a confirmation step.
+
+See [Session Picker installation and usage / 桌面选择器安装与使用](session-picker/README.md) for the companion scripts, preview, and limitations.
+
+---
+
 [![Release](https://img.shields.io/github/v/release/sergiye/rdpWrapper)](https://github.com/sergiye/rdpWrapper/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/sergiye/rdpWrapper/total?color=ff4f42)](https://sergiye.github.io/github-release-stats/?username=sergiye&repository=rdpWrapper&page=1&per_page=100)
 ![Last commit](https://img.shields.io/github/last-commit/sergiye/rdpWrapper?color=00AD00)
