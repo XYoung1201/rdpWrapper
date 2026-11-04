@@ -1,162 +1,218 @@
-# RDP Wrapper
+<h1 align="center">RDP Wrapper + Session Picker</h1>
 
-## Desktop session picker in this fork
+<p align="center"><b>本地与远程桌面会话选择工具</b></p>
+<p align="center">登录、解锁或重连后，选择继续使用当前桌面，或接管已有桌面。</p>
 
-This fork adds a large-text session picker for local console and RDP desktops belonging to the signed-in account. It opens after local sign-in, unlock, and RDP reconnection, and supports switching between existing desktops with a confirmation step.
+<p align="center">
+  <b>简体中文</b> · <a href="README_EN.md">English</a>
+</p>
 
-See [Session Picker installation and usage / 桌面选择器安装与使用](session-picker/README.md) for the companion scripts, preview, and limitations.
+<p align="center">
+  <a href="https://github.com/XYoung1201/rdpWrapper/releases/latest"><b>下载安装包</b></a> ·
+  <a href="#快速上手"><b>快速上手</b></a> ·
+  <a href="#功能与操作"><b>功能与操作</b></a> ·
+  <a href="#常见问题"><b>常见问题</b></a> ·
+  <a href="#反馈与贡献"><b>反馈与贡献</b></a>
+</p>
 
----
+<p align="center">
+  <a href="https://github.com/XYoung1201/rdpWrapper/releases/latest"><img src="https://img.shields.io/github/v/release/XYoung1201/rdpWrapper?color=2563eb" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/tested-Windows%2011%20x64-0078D4" alt="Tested on Windows 11 x64">
+  <img src="https://img.shields.io/badge/PowerShell-5.1-5391FE" alt="Windows PowerShell 5.1">
+  <img src="https://img.shields.io/badge/runtime-.NET%20Framework-512BD4" alt=".NET Framework">
+</p>
 
-[![Release](https://img.shields.io/github/v/release/sergiye/rdpWrapper)](https://github.com/sergiye/rdpWrapper/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/sergiye/rdpWrapper/total?color=ff4f42)](https://sergiye.github.io/github-release-stats/?username=sergiye&repository=rdpWrapper&page=1&per_page=100)
-![Last commit](https://img.shields.io/github/last-commit/sergiye/rdpWrapper?color=00AD00)
+<p align="center">
+  <a href="session-picker/preview.png"><img src="session-picker/preview.png" alt="大字桌面选择器，按会话、桌面类型、状态和连接设备分列显示" width="960"></a>
+</p>
+<p align="center"><sub>界面使用演示数据，展示本地 HDMI 桌面、正在使用的 RDP 桌面和已断开的桌面。</sub></p>
 
-[![](https://img.shields.io/badge/WINDOWS-7%20%E2%80%93%2011-blue)](https://endoflife.date/windows)
-[![](https://img.shields.io/badge/SERVER-2012%20%E2%80%93%202025-blue)](https://endoflife.date/windows-server)
+本仓库基于 sergiye/rdpWrapper，增加了用于 Windows 本地与远程桌面的 Session Picker 配套扩展。上游工具负责配置 RDP Wrapper / TermWrap，选择器负责在登录或解锁后列出当前账户已有的桌面，让用户决定继续使用当前桌面，或接管另一个桌面。
 
-----
+它适合在本机 HDMI 屏幕、另一台电脑和移动端 RDP 客户端之间切换工作位置。选择器采用大字表格、大尺寸按钮和二次确认窗口，同时支持触摸、鼠标与键盘操作。
 
-## Overview
+已在 Windows 11 x64、TermWrap 环境验证本地与 RDP 桌面的双向接管，以及同账户 RDP 会话之间的接管。其他系统与客户端组合需要在目标设备上验证。
 
-`RDP Wrapper` is a RDP setup and configuration utility
+## 目录
 
-This tool is inspired by the [stascorp's rdpwrap project](https://github.com/stascorp/rdpwrap).
-However it is written in pure .NET instead of Pascal/Delphi.
-The main idea was to create small and portable single-file application with all required functionality.
+- [产品特性](#产品特性)
+- [适用场景](#适用场景)
+- [快速上手](#快速上手)
+- [界面导览](#界面导览)
+- [功能与操作](#功能与操作)
+- [安装与卸载](#安装与卸载)
+- [配置说明](#配置说明)
+- [常见问题](#常见问题)
+- [开发与扩展](#开发与扩展)
+- [反馈与贡献](#反馈与贡献)
+- [资料与资源](#资料与资源)
 
-And yes, it can auto-generate offsets for new/updated Windows versions - thanks to the @llccd projects:
- - [TermWrap](https://github.com/llccd/TermWrap)
- - [RDPWrapOffsetFinder](https://github.com/llccd/RDPWrapOffsetFinder).
+## 产品特性
 
-RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
+| 特性 | 可以做什么 | 使用效果 |
+|---|---|---|
+| 本地与 RDP 桌面选择 | 列出同账户的本地屏幕桌面、活动 RDP 桌面与断开的桌面 | 按工作位置和已有内容选择桌面 |
+| 登录与解锁触发 | 本地登录、解锁及 RDP 连接、重连后打开窗口 | 在回到桌面时提供选择入口 |
+| 大字与大按钮 | 15–19 磅字体、54 像素列表行和大尺寸操作按钮 | 便于在本机显示器与移动端点击、阅读 |
+| 分列状态信息 | 展示会话编号、桌面类型、使用状态和连接设备 | 清楚辨认将要接管的桌面 |
+| 接管前确认 | 再次说明目标会话、断开连接和注销行为 | 在切换前确认工作已保存 |
+| 过渡会话清理 | 接管成功后注销当前过渡会话 | 减少切换后遗留的空闲会话 |
+| 后台启动补齐 | 为已存在的会话启动选择器，并检查选择器进程 | 安装前已登录的桌面也能获得选择入口 |
 
-It's recommended to have original termsrv.dll file with the RDP Wrapper installation. If you have modified it before with other patchers, it may become unstable and crash in any moment.
+## 适用场景
 
-### What can it do?
+| 使用需求 | 操作方式 |
+|---|---|
+| 从手机或另一台电脑继续操作本机桌面 | RDP 登录后选择“本机 HDMI / 屏幕”，确认接管 |
+| 回到本机继续使用远程桌面的工作内容 | 解锁本机后选择正在使用的 RDP 桌面 |
+| 恢复之前断开的桌面 | 在列表中选择状态为“已断开，可恢复”的会话 |
+| 保持当前桌面 | 点击“继续使用当前桌面”，或按 Esc |
+| 随时重新选择桌面 | 从开始菜单打开 `RDP Session Picker` |
 
-The application is portable and has the following features:
- - RDP Wrapper does not patch termsrv.dll, it loads termsrv with different parameters
- - RDP host server on any Windows edition beginning from Vista
- - Using the same user simultaneously for local and remote logon (see configuration app)
- - Console and remote sessions at the same time
- - Enabled camera and USB redirection (when TermWrap installed)
- - show RDP service current status
- - configure RDP options
- - install / uninstall wrapper
- - generate config for not supported OS (after windows update) - make sure you have [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170#visual-studio-2015-2017-2019-and-2022) installed
- - check for app updates (from main window system menu)
- - Console and RDP session shadowing (using [Task Manager in Windows 7](http://cdn.freshdesk.com/data/helpdesk/attachments/production/1009641577/original/remote_control.png?1413476051) and lower, and [Remote Desktop Connection in Windows 8](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) and higher)
- - Windows 2000, XP and Server 2003 are not supported
+## 快速上手
 
- #### Additional application features
+### 下载安装
 
-  - auto-update application to the latest version
-  - open 'wrap.ini' in editor
-  - console mode with file output ([#16](https://github.com/sergiye/rdpWrapper/issues/16))
-  - choose where to store settings: file or registry
-  - optionally add Defender exclusion ([#6](https://github.com/sergiye/rdpWrapper/issues/6))
-  - optionally add firewall rule when RDP port changed
-  - create a user and add to rdp group ([#9](https://github.com/sergiye/rdpWrapper/issues/9))
-  - open user management (new/old style)
-  - check if Microsoft Visual C++ 2015-2022 Redistributable is installed ([#7](https://github.com/sergiye/rdpWrapper/issues/7))
-  - fix Microsoft account local cache ([#10](https://github.com/sergiye/rdpWrapper/issues/10))
-  - configuring display/hide of [client security warnings](https://learn.microsoft.com/en-us/windows-server/remote/remote-desktop-services/remotepc/understanding-security-warnings)
-  - configuring client USB device redirection restrictions
+1. 先通过上游 RDP Wrapper / TermWrap 配置好本机远程桌面支持。
+2. 下载本仓库发行页中的 `RDP-Session-Picker-v1.0.0.zip`，解压完整文件夹。
+3. 在正在使用的桌面中双击 `session-picker/Install.cmd`，确认 UAC 提示。
+4. 本地登录、解锁或 RDP 重连后，等待“选择要使用的桌面”窗口出现。
+5. 选择一行并点击“接管选中的桌面”，阅读确认内容后执行切换。
 
-  and you can get full/lite/x64/x86 version of the application - the one that best suits your needs
+接管后，目标桌面的原连接会断开，当前桌面会注销。请先保存当前桌面中的工作。
 
-### What does it look like?
+安装包与上游工具分别提供下载入口。[选择器发行版](https://github.com/XYoung1201/rdpWrapper/releases/latest) · [上游 RDP Wrapper 发行版](https://github.com/sergiye/rdpWrapper/releases)
 
-Here's a preview of the app's UI running on Windows 10:
+### 环境要求
 
-[<img src="https://github.com/sergiye/rdpWrapper/raw/master/preview.png" alt="Themes" width="300"/>](https://raw.githubusercontent.com/sergiye/rdpWrapper/master/preview.png)
+| 项目 | 要求与用途 |
+|---|---|
+| 已验证系统 | Windows 11 x64 |
+| 远程桌面服务 | 已配置并能正常连接的 RDP Wrapper / TermWrap 环境 |
+| 脚本与界面运行时 | Windows PowerShell 5.1、.NET Framework、Windows Forms |
+| 安装与卸载 | 管理员确认，用于部署系统任务和设置 |
+| 日常使用 | 选择器以会话用户的普通权限运行，列出同一账户的桌面 |
 
-Also there are:
- - `Light`/`Dark` themes with auto switching mode.
- - Custom `themes` supported from external files
+### 从源码安装
 
-To add custom theme to the app, just create a `themes` folder next to the executable file and place any {themeName}.json files there.
-Custom theme.json file content example:
-```json
-{
-  "DisplayName": "Custom Theme",
-  "DarkMode": true,
-  "BackgroundColor": "#1E1E1E",
-  "ForegroundColor": "#E9E9E9",
-  "HyperlinkColor": "#00D980",
-  "SelectedBackgroundColor": "#4CBB17",
-  "SelectedForegroundColor": "#000000",
-  "LineColor": "#262626",
-  "StrongLineColor": "#454545",
-  "WarnColor": "#FF4500"
-}
-```
-Don't forget to restart the app to scan for new theme files!
-
-## Download
-
-The published version can be obtained from [releases](https://github.com/sergiye/rdpWrapper/releases).
-
-> [!WARNING]
->Microsoft and other major antivirus vendors have flagged RdpWrapper as "malware". This is likely due to Microsoft's hatred against RdpWrapper, not because it contains a virus or such. Flags from Microsoft usually spread to other antivirus vendors.
->RdpWrapper has a history of being falsely detected as malware by antiviruses (including Defender). This is likely due to its behavior, such as placing binaries in `c:\Program Files\` and performing in-memory extraction of wrapping libraries.
-
-Currently, Defender does not flag this release, but it is likely that future updates may being flagged by Defender's machine learning-based detection systems within a few days of release.
-
-> [!IMPORTANT]
->If Defender or another antivirus detects any part of RdpWrapper as malware, it may prevent proper work or cause application to fail to start.
-> RdpWrapper will not start if this file exists but is blocked from being loaded.
->We strongly recommend excluding RdpWrapper's binaries from antivirus scans
-
-
-> [!TIP]
-> Please include the following folder in your antivirus' exclusion list to prevent issues due to antivirus detections:
-> c:\Program Files\RDP Wrapper\
-
-RdpWrapper can add this exception automatically only for Defender, but if it does not, you can do it manually
-
-For Defender, you can run the following script in PowerShell as an administrator:
 ```powershell
-Add-MpPreference -ExclusionPath "c:\Program Files\RDP Wrapper\"
+git clone https://github.com/XYoung1201/rdpWrapper.git
+cd rdpWrapper
+.\session-picker\Install.cmd
 ```
 
-> [!CAUTION]
-> If your antivirus deletes the downloaded app file, you may need to temporarily disable real-time protection or save the file in an excluded folder.
-> If you are uncomfortable with this process, or if your antivirus is managed by your company, we advise against using RdpWrapper. Please consider alternative solutions instead.
+UAC 提示会出现在启动安装程序的会话中。通过 RDP 使用时，请在对应的远程桌面中启动安装程序。
 
-## Notes
+## 界面导览
 
-### Enable USB redirection
-To enable remote desktop USB redirection, additional group policy settings are required (gpedit):
+| 位置 | 主要内容 |
+|---|---|
+| 顶部 | 当前会话编号与登录账户 |
+| 桌面列表 | 会话编号、桌面类型、使用状态与客户端设备名称 |
+| 状态提示 | 说明接管后的连接与注销行为，或提示没有其他桌面 |
+| 左下按钮 | 继续使用当前桌面 |
+| 右下按钮 | 接管选中的桌面，选择一行后启用 |
+| 确认窗口 | 再次显示目标会话和当前桌面的注销提示 |
 
-`Computer Configuration\Administrative Templates\System\Device Installation` - `Allow remote access to the Plug and Play interface` -> Enabled
+## 功能与操作
 
-`Computer Configuration\Administrative Templates\Windows Components\Remote Desktop Services\Remote Desktop Session Host\Device and Resource Redirection` - `Do not allow supported Plug and Play device redirection` -> Disabled
+### 选择与接管桌面
 
-`Computer Configuration\Administrative Templates\Windows Components\Remote Desktop Services\Remote Desktop Connection Client\RemoteFX USB Device Redirection` - `Allow RDP redirection of other supported RemoteFX USB devices from this computer` -> Enabled
+点击列表中的一行，再点击“接管选中的桌面”。目标会话会在执行前重新核验，确认属于当前账户且仍可使用后才尝试连接。
 
-### Notes on audio recording redirection
-Just like UmWrap, EndpWrap is only needed on server and home editions. It gets loaded in all applications that play/record remote audio, and may cause some tricky applications to stuck or crash.
+本地屏幕与 RDP 桌面都以 Windows 会话呈现。Windows 的任务视图虚拟桌面属于各自会话内部，多个虚拟桌面会显示为同一个会话条目。
 
-To enable audio recording redirection, both EndpWrap.dll and Zydis.dll needs to be copied to the system32 folder. After that, change the following registry entry from rdpendp.dll to EndpWrap.dll:
+### 常用操作与快捷键
 
-HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\AudioEnumeratorDll
+| 操作 | 方式 |
+|---|---|
+| 选择桌面 | 触摸、鼠标点击，或在列表中使用方向键 |
+| 在控件间移动 | Tab |
+| 接管选中的桌面 | 在列表中按 Enter，或点击接管按钮 |
+| 保留当前桌面 | 点击继续按钮、关闭窗口，或按 Esc |
+| 返回选择 | 在接管确认窗口点击“返回选择”或按 Esc |
 
+### 当前功能边界
 
-## How can I help improve it?
-The rdpWrapper team welcomes feedback and contributions!<br/>
-You can check if it works properly on your PC. If you notice any inaccuracies, please send us a pull request. If you have any suggestions or improvements, don't hesitate to create an issue.
+选择器在 Windows 完成登录或解锁后显示。连接过程中，Windows 可能已经恢复旧会话。登录前强制创建全新独立会话的功能尚未实现。
 
-Also, don't forget to ★ star ★ the repository to help other people find it.
+列表在窗口打开时读取，目标状态在接管前再次核验。需要查看后续新增的会话时，可关闭窗口并从开始菜单重新打开。
 
-<!-- [![Star History Chart](https://api.star-history.com/svg?repos=sergiye/rdpwrapper&type=Date)](https://star-history.com/#sergiye/rdpwrapper&Date) -->
+## 安装与卸载
 
-[//]: # ([![Stargazers over time]&#40;https://starchart.cc/sergiye/rdpwrapper.svg?variant=adaptive&#41;]&#40;https://starchart.cc/sergiye/rdpwrapper&#41;)
+| 入口 | 作用 |
+|---|---|
+| `session-picker/Install.cmd` | 安装或更新选择器，并启动后台任务 |
+| `session-picker/Uninstall.cmd` | 移除选择器任务、进程、开始菜单入口和运行文件，恢复保存的单会话设置 |
+| 开始菜单中的 `RDP Session Picker` | 手动打开桌面选择器 |
 
-<!-- [![Stargazers](https://reporoster.com/stars/sergiye/rdpWrapper)](https://star-history.com/#sergiye/rdpWrapper&Date) -->
+卸载后保留本地运行历史，可按需删除。完整脚本说明见[选择器文档](session-picker/README.md)。
 
-<!-- [![Forkers](https://reporoster.com/forks/sergiye/rdpWrapper)](https://github.com/sergiye/rdpWrapper/network/members) -->
+## 配置说明
 
-## Donate!
-Every [cup of coffee](https://patreon.com/SergiyE) you donate will help this app become better and let me know that this project is in demand.
+| 位置 / 配置 | 作用 |
+|---|---|
+| `%ProgramFiles%\RdpSessionPicker` | 已安装的运行文件 |
+| 系统任务 `RdpSessionPickerBroker` | 开机运行，以 SYSTEM 身份为各会话启动普通权限的选择器 |
+| `fSingleSessionPerUser` | 安装时将系统与策略中的值设为 `0`，允许同账户多会话 |
+| `settings-before-install.json` | 保存首次安装时的单会话设置，用于卸载恢复 |
+| `%LocalAppData%\RdpSessionPicker\history.log` | 窗口显示与会话切换记录 |
+| `%ProgramData%\RdpSessionPicker\broker.log` | 后台任务启动与错误记录 |
+
+后台任务每五秒检查一次选择器进程，连接和解锁由 Windows WTS 事件触发。
+
+## 常见问题
+
+| 现象 | 检查与处理 |
+|---|---|
+| RDP 重连后没有弹窗 | 确认已安装新版，检查后台任务和 `broker.log`；可先从开始菜单手动打开 |
+| HDMI 屏幕解锁后没有弹窗 | 确认版本包含本地连接和解锁事件处理，再检查对应会话中的选择器进程 |
+| 看不到其他桌面 | 当前列表只提供同一账户的其他 Windows 会话；核对账户、会话状态与实际安装版本 |
+| 看不到任务视图中的多个虚拟桌面 | 虚拟桌面归属同一 Windows 会话，列表按会话显示 |
+| 同账户连接后直接恢复了旧桌面 | Windows 已完成恢复；选择器会在进入桌面后提供已有会话选择 |
+| 没看到 UAC 提示 | 查看启动安装程序的桌面；RDP 安装应从远程桌面内启动 |
+| 接管时目标状态发生变化 | 关闭窗口后重新打开，重新选择仍然存在的目标会话 |
+| 切换失败并显示错误码 | 保留错误码、系统版本、会话状态与相关日志，用于复现和排查 |
+
+## 开发与扩展
+
+### 工程结构
+
+| 路径 | 职责 |
+|---|---|
+| `rdpWrapper/`、`rdpWrapper.sln` | 上游 RDP Wrapper 的 C# 工程 |
+| `session-picker/SessionPicker.ps1` | 选择器运行与事件循环 |
+| `session-picker/PickerUI.ps1` | 大字界面、接管确认与切换操作 |
+| `session-picker/Native.cs` | WTS 会话查询、连接与注销接口 |
+| `session-picker/Watcher.cs` | 本地连接、RDP 连接与解锁通知 |
+| `session-picker/Broker.ps1`、`BrokerNative.cs` | 后台进程补齐与用户会话内启动 |
+| `session-picker/Install.ps1`、`Uninstall.ps1` | 安装、设置保存与卸载恢复 |
+| `session-picker/tests/` | 事件与界面检查 |
+
+### 验证命令
+
+在仓库根目录运行。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File session-picker\tests\Test-Events.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File session-picker\tests\Test-UI.ps1
+```
+
+事件检查覆盖本地连接、远程连接、解锁和锁屏的处理。界面检查使用演示数据验证条目、字体、按钮、行选择和确认取消。实际网络连接与接管需要在目标设备上验证。
+
+上游 C# 工程通过 `make.bat` 调用 Visual Studio MSBuild 进行还原与构建，相关工具功能与使用说明见上游项目。
+
+## 反馈与贡献
+
+欢迎通过本仓库的 Pull Request 改进代码或文档。复现说明应包含系统与客户端版本、选择器版本、最短操作步骤、预期结果和实际结果。提供日志或截图前，请移除账户、设备和网络信息。[提交 Pull Request](https://github.com/XYoung1201/rdpWrapper/pulls)
+
+RDP Wrapper 核心与 TermWrap 相关问题可结合上游说明排查。[上游问题列表](https://github.com/sergiye/rdpWrapper/issues)
+
+## 资料与资源
+
+- [选择器详细文档](session-picker/README.md)
+- [选择器发行版与安装包](https://github.com/XYoung1201/rdpWrapper/releases)
+- [上游 sergiye/rdpWrapper](https://github.com/sergiye/rdpWrapper)
+- [TermWrap](https://github.com/llccd/TermWrap)
+- [RDPWrapOffsetFinder](https://github.com/llccd/RDPWrapOffsetFinder)
+- [Windows WTS 会话事件](https://learn.microsoft.com/en-us/windows/win32/termserv/wm-wtssession-change)
