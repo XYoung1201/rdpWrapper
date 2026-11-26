@@ -22,7 +22,7 @@ Remove-Item -LiteralPath $shortcut -ErrorAction SilentlyContinue
 $runPath='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 $run=(Get-ItemProperty $runPath -Name RdpSessionPicker -ErrorAction SilentlyContinue).RdpSessionPicker
 if($run -and $run.Contains($picker)){Remove-ItemProperty $runPath -Name RdpSessionPicker}
-foreach($file in 'SessionPicker.ps1','PickerUI.ps1','Native.cs','Watcher.cs','Broker.ps1','BrokerNative.cs','Uninstall.ps1','settings-before-install.json') {
+foreach($file in 'SessionPicker.ps1','PickerUI.ps1','SharedConfig.ps1','Native.cs','Watcher.cs','Broker.ps1','BrokerNative.cs','Uninstall.ps1','settings-before-install.json') {
   Remove-Item -LiteralPath (Join-Path $destination $file) -ErrorAction SilentlyContinue
 }
-Write-Output 'RDP Session Picker uninstalled. Per-user history remains in LocalAppData.'
+Write-Output 'RDP Session Picker uninstalled. Per-user history remains in LocalAppData; shared settings remain in ProgramData.'

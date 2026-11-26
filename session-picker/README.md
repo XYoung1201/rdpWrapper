@@ -12,6 +12,8 @@ System tray switcher for local console and RDP sessions belonging to the signed-
 - 菜单列出同账户正在使用（实心绿点）和已经断开（空心圆点）的本地 / RDP 桌面，右侧显示类型、状态和设备。
 - 进入其他桌面时弹出提示窗口：“保留当前桌面”（默认，只断开）或“注销并删除当前桌面”。
 - “注销已断开的桌面”子菜单用于清理之前保留的桌面。
+- “启用多桌面”开关：关闭后新的远程连接直接进入已有桌面，不再新建桌面。
+- “设备绑定”子菜单（需启用多桌面）：把某台远程设备（按 RDP 客户端名称识别）固定到某个桌面，它每次新连接都直接进入该桌面。
 - 本地 HDMI 屏幕登录 / 解锁、RDP 连接 / 重连后，如果有其他桌面，弹出一条通知提醒，可在菜单中关闭。
 - 支持触摸、鼠标、方向键、Tab、Enter 和 Esc。
 - 后台任务为安装前已经存在的会话启动托盘程序，并补齐退出的进程。
@@ -39,6 +41,14 @@ System tray switcher for local console and RDP sessions belonging to the signed-
 
 进入后，目标桌面原来的连接会断开。如果目标桌面正在另一台设备上使用，提示窗口会额外说明。
 
+### 多桌面开关与设备绑定
+
+“启用多桌面”写入 `%ProgramData%\RdpSessionPicker\shared\config.json`，后台任务每秒读取并把系统和策略中的 `fSingleSessionPerUser` 设为 `0`（开启）或 `1`（关闭）。设置只影响之后的新连接，已打开的桌面保留。
+
+“设备绑定”同样保存在该文件中。后台任务发现某台已绑定设备产生新的 RDP 连接时，用 `WTSConnectSession` 把连接移入绑定的会话：为这次连接新建的空桌面随即注销，被 Windows 恢复的旧桌面只断开。绑定的会话已不存在时，这台设备下次打开的新桌面成为新的绑定目标。托盘菜单中的手动切换会留下 30 秒的标记，不会被绑定拉回。
+
+安装器给已登录用户（`S-1-5-11`）授予 `shared` 目录的修改权限，所以同一台电脑上的其他账户也能修改多桌面开关；绑定只会把某个账户的连接移入该账户自己的桌面。
+
 界面显示的是 Windows 用户会话。同一会话中的多个虚拟桌面属于同一个条目。菜单每次打开时重新读取列表，目标状态会在进入前再次核验。
 
 托盘图标在 Windows 完成登录后出现。Windows 可能已经恢复旧会话。登录前强制创建全新独立会话的功能尚未实现。
@@ -47,7 +57,7 @@ System tray switcher for local console and RDP sessions belonging to the signed-
 
 双击 `Uninstall.cmd` 并确认 UAC。卸载器移除选择器的系统任务、进程、开始菜单入口和运行文件，并恢复保存的单会话设置。
 
-托盘程序日志位于 `%LocalAppData%\RdpSessionPicker\history.log`，提醒开关保存在同目录的 `settings.json`，后台任务日志位于 `%ProgramData%\RdpSessionPicker\broker.log`。这些历史记录在卸载后保留，可按需删除。
+托盘程序日志位于 `%LocalAppData%\RdpSessionPicker\history.log`，提醒开关保存在同目录的 `settings.json`，后台任务日志位于 `%ProgramData%\RdpSessionPicker\broker.log`，多桌面开关与设备绑定保存在 `%ProgramData%\RdpSessionPicker\shared\config.json`。这些历史记录在卸载后保留，可按需删除。
 
 ## 验证
 
@@ -58,7 +68,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File tests\Test-Events.p
 powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -File tests\Test-UI.ps1
 ```
 
-事件检查覆盖本地连接、远程连接、解锁和锁屏事件的处理。界面检查使用演示会话，核对托盘菜单条目（不含其他账户）、清理子菜单、空列表提示，以及进入提示窗口的默认选项、两个选项的返回值、正在使用时的警告和取消行为。加 `-PreviewPath dialog.png -MenuPreviewPath menu.png` 可保存实际渲染截图。实际网络连接与登录仍需要在目标设备上验证。
+事件检查覆盖本地连接、远程连接、解锁和锁屏事件的处理。界面检查使用演示会话，核对托盘菜单条目（不含其他账户）、清理子菜单、多桌面开关、设备绑定的保存与解除、空列表提示，以及进入提示窗口的默认选项、两个选项的返回值、正在使用时的警告和取消行为。加 `-PreviewPath dialog.png -MenuPreviewPath menu.png` 可保存实际渲染截图。实际网络连接与登录仍需要在目标设备上验证。
 
 ## 与上游项目的关系
 
