@@ -9,6 +9,7 @@ public static class SessionNative {
   [DllImport("wtsapi32.dll")] static extern void WTSFreeMemory(IntPtr buffer);
   [DllImport("wtsapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] public static extern bool WTSConnectSessionW(int source, int destination, string password, bool wait);
   [DllImport("wtsapi32.dll", SetLastError=true)] public static extern bool WTSLogoffSession(IntPtr server, int id, bool wait);
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
   static string Text(int id, int info) {
     IntPtr p; int size;
     if (!WTSQuerySessionInformation(IntPtr.Zero,id,info,out p,out size)) return "";

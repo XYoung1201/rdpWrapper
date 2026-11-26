@@ -33,8 +33,8 @@ foreach($file in $assets) {
 $shell=New-Object -ComObject WScript.Shell
 $shortcut=$shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'RDP Session Picker.lnk'))
 $shortcut.TargetPath="$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe"
-$shortcut.Arguments='-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "'+$picker+'" -ShowOnce'
-$shortcut.Description='选择本地或远程桌面会话'
+$shortcut.Arguments='-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File "'+$picker+'"'
+$shortcut.Description='打开右下角的桌面切换菜单'
 $shortcut.Save()
 $runPath='HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
 $oldRun=(Get-ItemProperty $runPath -Name RdpSessionPicker -ErrorAction SilentlyContinue).RdpSessionPicker
