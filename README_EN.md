@@ -56,6 +56,8 @@ Local-to-RDP, RDP-to-local, and same-account RDP session takeover have been veri
 | Keep or log off | Entering another desktop asks whether to keep the current one (disconnect) or log it off |
 | Session details | Shows the session ID, desktop type, status, and client device |
 | Cleanup | A submenu logs off disconnected desktops you kept earlier |
+| Multi-desktop switch | "启用多桌面" turns concurrent sessions for the same account on or off |
+| Device binding | With multi-desktop on, pins a device (identified by its RDP client name) to a desktop so it always lands there |
 | Background startup | Starts pickers in existing sessions and restores missing picker processes |
 
 ## Quick start
@@ -97,6 +99,8 @@ Start installation inside the desktop where you can approve UAC. When using RDP,
 | Menu header | Current session ID, desktop type, and device |
 | Enter another desktop | One row per same-account session: green dot = in use, hollow dot = disconnected, with type, state, and device on the right |
 | Log off disconnected desktops | Submenu with a confirmation for each disconnected session |
+| Enable multi-desktop | Checked: every new remote connection opens its own desktop. Unchecked: new connections go to the account's existing desktop |
+| Device binding | Lists remote devices that have connected to this account; bind each one to a desktop or remove the binding |
 | Remind me at sign-in or unlock | Toggles the notification |
 | Enter prompt | Two large cards, "Keep current desktop" (default) and "Log off and delete current desktop", plus Cancel |
 
@@ -105,6 +109,8 @@ Start installation inside the desktop where you can approve UAC. When using RDP,
 Right- or left-click the tray icon (or click the reminder notification, or open `RDP Session Picker` from the Start menu) and pick a desktop. In the prompt, choose Keep (disconnects the current desktop; programs keep running and you can come back from the menu) or Log off (closes everything in the current desktop). Esc or Cancel does nothing.
 
 The picker shows Windows user sessions. Task View virtual desktops within one session share a single entry. The list is read each time the menu opens and checked again before switching. The broker restarts the tray process within seconds if it exits, so the menu has no Exit item.
+
+**Multi-desktop and device binding.** The broker (SYSTEM) applies the multi-desktop switch to `fSingleSessionPerUser` within a second or two; it affects new connections only, and existing desktops stay. When a bound device makes a new connection, the broker moves it into its bound desktop and logs off the empty desktop that was opened just for that connection (an older desktop Windows reconnected instead is only left disconnected). If the bound desktop has been logged off, the next desktop that device opens becomes its new binding. Manual switches from the tray menu are not affected. Devices are matched by RDP client name, so two devices with the same name count as one.
 
 The tray icon appears after Windows completes sign-in. Windows may already have restored an existing session. Forcing a brand-new independent session before sign-in is not implemented.
 
@@ -124,9 +130,10 @@ Run `session-picker/Uninstall.cmd` to remove the task, picker processes, shortcu
 | `settings-before-install.json` | First-install settings snapshot used by the uninstaller |
 | `%LocalAppData%\RdpSessionPicker\history.log` | Reminder and switching history |
 | `%LocalAppData%\RdpSessionPicker\settings.json` | Whether to show the sign-in reminder |
-| `%ProgramData%\RdpSessionPicker\broker.log` | Broker startup and error log |
+| `%ProgramData%\RdpSessionPicker\broker.log` | Broker startup, multi-desktop and device binding log |
+| `%ProgramData%\RdpSessionPicker\shared\config.json` | Multi-desktop switch and device bindings, written by the tray and applied by the broker; signed-in users can modify this folder |
 
-The broker checks picker processes every five seconds. WTS notifications trigger connection and unlock handling.
+The broker applies the multi-desktop setting and device bindings every second and checks picker processes every five seconds. WTS notifications trigger connection and unlock handling.
 
 ## Frequently asked questions
 
@@ -151,7 +158,8 @@ The upstream C# application is in `rdpWrapper/`, with `rdpWrapper.sln` and the V
 | `session-picker/PickerUI.ps1` | Tray icon, menu, enter prompt, and switching |
 | `session-picker/Native.cs` | WTS query, connection, and logoff APIs |
 | `session-picker/Watcher.cs` | Local, remote, and unlock notifications |
-| `session-picker/Broker.ps1`, `BrokerNative.cs` | Per-session startup and process recovery |
+| `session-picker/Broker.ps1`, `BrokerNative.cs` | Per-session startup, process recovery, multi-desktop setting and device bindings |
+| `session-picker/SharedConfig.ps1` | Multi-desktop and device binding settings shared by the tray and the broker |
 | `session-picker/Install.ps1`, `Uninstall.ps1` | Deployment and settings restoration |
 
 Run these checks from the repository root.

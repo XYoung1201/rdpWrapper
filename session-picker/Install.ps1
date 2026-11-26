@@ -8,7 +8,7 @@ if(!$admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 $destination=Join-Path $env:ProgramFiles 'RdpSessionPicker'
 $picker=Join-Path $destination 'SessionPicker.ps1'
 $taskName='RdpSessionPickerBroker'
-$assets='SessionPicker.ps1','PickerUI.ps1','Native.cs','Watcher.cs','Broker.ps1','BrokerNative.cs','Uninstall.ps1'
+$assets='SessionPicker.ps1','PickerUI.ps1','SharedConfig.ps1','Native.cs','Watcher.cs','Broker.ps1','BrokerNative.cs','Uninstall.ps1'
 foreach($file in $assets) {
   if(!(Test-Path -LiteralPath (Join-Path $PSScriptRoot $file))){throw "Missing package file: $file"}
 }
@@ -44,6 +44,12 @@ foreach($path in 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server','HKLM:
   Set-ItemProperty $path -Name fSingleSessionPerUser -Type DWord -Value 0
 }
 New-Item -ItemType Directory -Force (Join-Path $env:ProgramData 'RdpSessionPicker')|Out-Null
+# Shared settings (multi-desktop switch, device bindings) are written by each user's tray icon
+# and applied by the SYSTEM broker, so signed-in users (S-1-5-11) get modify rights here only.
+$shared=Join-Path $env:ProgramData 'RdpSessionPicker\shared'
+New-Item -ItemType Directory -Force $shared|Out-Null
+& icacls.exe $shared /grant '*S-1-5-11:(OI)(CI)M' /Q|Out-Null
+if($LASTEXITCODE){throw "icacls failed with $LASTEXITCODE"}
 $argument='-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $destination 'Broker.ps1')+'"'
 $action=New-ScheduledTaskAction -Execute "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument $argument
 $settings=New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

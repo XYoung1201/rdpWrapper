@@ -14,6 +14,8 @@ $mutex=New-Object Threading.Mutex($false,"Local\RdpSessionPicker")
 if (!$mutex.WaitOne(0)) { [void]$showSignal.Set(); exit }
 $stateFolder=Join-Path $env:LOCALAPPDATA 'RdpSessionPicker'
 New-Item -ItemType Directory -Force $stateFolder | Out-Null
+$sharedFolder=Join-Path $env:ProgramData 'RdpSessionPicker\shared'
+. (Join-Path $PSScriptRoot 'SharedConfig.ps1')
 . (Join-Path $PSScriptRoot 'PickerUI.ps1')
 $script:Settings=Read-PickerSettings
 $script:Tray=New-PickerTray

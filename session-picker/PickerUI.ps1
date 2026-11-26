@@ -1,5 +1,5 @@
 ﻿# Tray icon, desktop menu and switch dialogs for RDP Session Picker.
-# Dot-sourced by SessionPicker.ps1 and the UI test. Expects $sessionId and $stateFolder.
+# Dot-sourced by SessionPicker.ps1 and the UI test. Expects $sessionId, $stateFolder and SharedConfig.ps1.
 
 $script:UiFontName='Microsoft YaHei UI'
 $script:Accent=[Drawing.Color]::FromArgb(37,99,235)
@@ -58,6 +58,12 @@ function Get-SessionStatus {param($Session) if($Session.State -eq 0){'正在使�
 function Get-SessionDevice {
   param($Session)
   if($Session.Name -eq 'console'){'本机键盘、鼠标'}elseif($Session.Client){[string]$Session.Client}else{''}
+}
+# Remote devices that can be bound: RDP sessions that report a client name.
+function Test-RemoteDevice {param($Session) [bool]($Session.Name -ne 'console' -and $Session.Client)}
+function Get-BoundDevices {
+  param($Config,$Session)
+  return @($Config.Bindings|Where-Object {$_.User -eq $Session.User -and $_.Domain -eq $Session.Domain -and $_.SessionId -eq $Session.Id}|ForEach-Object Client)
 }
 function Get-SessionSummary {
   param($Session,[switch]$NoStatus)
@@ -157,7 +163,7 @@ $script:Dots=@{Online=New-DotImage $script:Online; Offline=New-DotImage $script:
 # ---------- Tray menu ----------
 
 function Update-TrayMenu {
-  param([Windows.Forms.ContextMenuStrip]$Menu,[object[]]$Sessions=@([SessionNative]::List()))
+  param([Windows.Forms.ContextMenuStrip]$Menu,[object[]]$Sessions=@([SessionNative]::List()),$Config=(Read-SharedConfig))
   $state=Get-DesktopState -Sessions $Sessions
   # Items share images and fonts, so they are cleared rather than disposed.
   $Menu.Items.Clear()
@@ -168,6 +174,10 @@ function Update-TrayMenu {
   $title.Margin=New-Object Windows.Forms.Padding(0,6,0,0)
   [void]$Menu.Items.Add($title)
   $hereText=if($state.Current){"当前：会话 $sessionId · $(Get-SessionSummary $state.Current -NoStatus)"}else{"当前：会话 $sessionId"}
+  if($state.Current) {
+    $boundHere=Get-BoundDevices $Config $state.Current
+    if($boundHere.Count){$hereText+=" · 绑定 $($boundHere -join '、')"}
+  }
   $here=New-Object Windows.Forms.ToolStripLabel($hereText)
   $here.Font=$script:Fonts.MenuNote
   $here.ForeColor=$script:Muted
@@ -183,6 +193,8 @@ function Update-TrayMenu {
     foreach($desktop in $state.Others) {
       $item=New-Object Windows.Forms.ToolStripMenuItem("会话 $($desktop.Id)")
       $item.ShortcutKeyDisplayString=Get-SessionSummary $desktop
+      $bound=Get-BoundDevices $Config $desktop
+      if($bound.Count){$item.ShortcutKeyDisplayString+=" · 绑定 $($bound -join '、')"}
       $item.Image=if($desktop.State -eq 0){$script:Dots.Online}else{$script:Dots.Offline}
       $item.ToolTipText=if($desktop.State -eq 0){'正在其他设备上使用，进入后那台设备会断开'}else{'已断开，程序仍在运行，可直接恢复'}
       $item.Tag=$desktop
@@ -217,6 +229,12 @@ function Update-TrayMenu {
   }
 
   [void]$Menu.Items.Add((New-Object Windows.Forms.ToolStripSeparator))
+  $multi=New-Object Windows.Forms.ToolStripMenuItem('启用多桌面')
+  $multi.Checked=[bool]$Config.MultiDesktop
+  $multi.ToolTipText=if($Config.MultiDesktop){'每个新的远程连接都会打开一个独立桌面'}else{'新的远程连接会直接进入这个账户已有的桌面'}
+  $multi.Add_Click({try {Switch-MultiDesktop} catch {Write-PickerLog "multi-error $_"}})
+  [void]$Menu.Items.Add($multi)
+  [void]$Menu.Items.Add((New-BindingMenu -State $state -Config $Config))
   $notify=New-Object Windows.Forms.ToolStripMenuItem('登录或解锁时提醒我')
   $notify.Checked=[bool]$script:Settings.Notify
   $notify.Add_Click({
@@ -225,6 +243,67 @@ function Update-TrayMenu {
   })
   [void]$Menu.Items.Add($notify)
   return $state
+}
+
+# "设备绑定" submenu: each remote device of this account, with the desktops it can be bound to.
+function New-BindingMenu {
+  param($State,$Config)
+  $root=New-Object Windows.Forms.ToolStripMenuItem('设备绑定')
+  if(!$Config.MultiDesktop) {
+    $root.Enabled=$false
+    $root.ToolTipText='启用多桌面后，才能把设备绑定到固定的桌面'
+    return $root
+  }
+  if(!$State.Current){$root.Enabled=$false; return $root}
+  $user=$State.Current.User; $domain=$State.Current.Domain
+  $desktops=@(@($State.Current)+@($State.Others)|Sort-Object Id)
+  $mine=@($Config.Bindings|Where-Object {$_.User -eq $user -and $_.Domain -eq $domain})
+  $devices=@(@($desktops|Where-Object {Test-RemoteDevice $_}|ForEach-Object Client)+@($mine|ForEach-Object Client)|Sort-Object -Unique)
+  $hint=New-Object Windows.Forms.ToolStripLabel('绑定后，该设备每次连接都直接进入对应桌面')
+  $hint.Font=$script:Fonts.MenuNote
+  $hint.ForeColor=$script:Muted
+  [void]$root.DropDownItems.Add($hint)
+  if(!$devices.Count) {
+    $none=New-Object Windows.Forms.ToolStripMenuItem('还没有远程设备连接到这个账户')
+    $none.Enabled=$false
+    [void]$root.DropDownItems.Add($none)
+    return $root
+  }
+  foreach($device in $devices) {
+    $here=(Test-RemoteDevice $State.Current) -and $State.Current.Client -eq $device
+    $item=New-Object Windows.Forms.ToolStripMenuItem($(if($here){"$device（本设备）"}else{$device}))
+    $seen=$desktops|Where-Object {$_.Client -eq $device -and $_.Address}|Select-Object -First 1
+    $binding=$mine|Where-Object Client -eq $device|Select-Object -First 1
+    $boundDesktop=if($binding){$desktops|Where-Object Id -eq $binding.SessionId|Select-Object -First 1}
+    $item.ShortcutKeyDisplayString=if(!$binding){'未绑定'}elseif($boundDesktop){"→ 会话 $($boundDesktop.Id)"}else{'→ 下次连接打开的桌面'}
+    $item.ToolTipText=if($seen){"设备名 $device，IP $($seen.Address)"}else{"设备名 $device"}
+    if($binding -and !$boundDesktop){$item.ToolTipText+="`r`n原来绑定的桌面已注销，下次连接打开的新桌面会成为它的绑定桌面"}
+    foreach($desktop in $desktops) {
+      $text="会话 $($desktop.Id)"
+      if($desktop.Id -eq $sessionId){$text+='（当前桌面）'}
+      $entry=New-Object Windows.Forms.ToolStripMenuItem("绑定到 $text")
+      $entry.ShortcutKeyDisplayString=Get-SessionSummary $desktop -NoStatus
+      $entry.Checked=[bool]($boundDesktop -and $boundDesktop.Id -eq $desktop.Id)
+      $entry.Tag=[pscustomobject]@{User=$user;Domain=$domain;Client=$device;SessionId=$desktop.Id}
+      $entry.Add_Click({
+        $info=$this.Tag
+        try {Set-DeviceBinding -User $info.User -Domain $info.Domain -Client $info.Client -SessionId $info.SessionId} catch {Write-PickerLog "binding-error $_"}
+      })
+      [void]$item.DropDownItems.Add($entry)
+    }
+    if($binding) {
+      [void]$item.DropDownItems.Add((New-Object Windows.Forms.ToolStripSeparator))
+      $remove=New-Object Windows.Forms.ToolStripMenuItem('解除绑定')
+      $remove.Tag=[pscustomobject]@{User=$user;Domain=$domain;Client=$device;SessionId=$null}
+      $remove.Add_Click({
+        $info=$this.Tag
+        try {Set-DeviceBinding -User $info.User -Domain $info.Domain -Client $info.Client -SessionId $null} catch {Write-PickerLog "binding-error $_"}
+      })
+      [void]$item.DropDownItems.Add($remove)
+    }
+    [void]$root.DropDownItems.Add($item)
+  }
+  return $root
 }
 
 function New-TrayMenu {
@@ -500,6 +579,7 @@ function Start-DesktopSwitch {
     }
     $skipPath=Join-Path $stateFolder "skip-$($latest.Id).txt"
     [IO.File]::WriteAllText($skipPath,[DateTime]::UtcNow.AddSeconds(30).ToString('o'))
+    Set-SwitchMarker $latest.Id
     if([SessionNative]::WTSConnectSessionW($latest.Id,$sessionId,'',$true)) {
       Write-PickerLog "switched $sessionId -> $($latest.Id) current=$choice"
       if($choice -eq 'Logoff') {
@@ -532,4 +612,40 @@ function Remove-DisconnectedDesktop {
       [void](Show-PickerNotice -Title '没能注销桌面' -Text "Windows 返回错误 $code。")
     }
   } finally {$script:DialogOpen=$false}
+}
+
+function Switch-MultiDesktop {
+  if($script:DialogOpen){return}
+  $script:DialogOpen=$true
+  try {
+    $config=Read-SharedConfig
+    $enable=!$config.MultiDesktop
+    if(!$enable) {
+      $text="关闭后，新的远程连接会直接进入这个账户已有的桌面，不再新建桌面，设备绑定也会暂停。`r`n已经打开的桌面会保留，仍可从菜单进入或注销。"
+      if(!(Show-PickerNotice -Title '关闭多桌面？' -Text $text -ConfirmText '关闭多桌面')){return}
+    }
+    $config.MultiDesktop=$enable
+    Save-SharedConfig $config
+    Write-PickerLog "multi-desktop=$enable from $sessionId"
+    if($script:Tray) {
+      $title=if($enable){'已启用多桌面'}else{'已关闭多桌面'}
+      $body=if($enable){'几秒内生效。之后每个新的远程连接都会打开独立桌面，可在“设备绑定”中固定设备进入的桌面。'}else{'几秒内生效。之后新的远程连接会进入已有桌面。'}
+      $script:Tray.ShowBalloonTip(6000,$title,$body,[Windows.Forms.ToolTipIcon]::None)
+    }
+  } catch {
+    Write-PickerLog "multi-error $_"
+    [void](Show-PickerNotice -Title '没能保存设置' -Text "$_")
+  } finally {$script:DialogOpen=$false}
+}
+
+function Set-DeviceBinding {
+  param([string]$User,[string]$Domain,[string]$Client,$SessionId)
+  $config=Read-SharedConfig
+  Set-DeviceBindingEntry $config $User $Domain $Client $SessionId
+  try {Save-SharedConfig $config}
+  catch {
+    [void](Show-PickerNotice -Title '没能保存绑定' -Text "$_")
+    return
+  }
+  Write-PickerLog "binding '$Client' -> $(if($null -eq $SessionId){'none'}else{$SessionId}) from $sessionId"
 }
