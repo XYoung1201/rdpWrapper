@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference='Stop'
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -Path (Join-Path (Split-Path $PSScriptRoot -Parent) 'Watcher.cs') -ReferencedAssemblies System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+Add-Type -Path (Join-Path (Split-Path $PSScriptRoot -Parent) 'Watcher.cs') -ReferencedAssemblies System.Windows.Forms,System.Drawing
 $watcher=New-Object SessionWatcher
 try {
  $method=[SessionWatcher].GetMethod('WndProc',[Reflection.BindingFlags]'Instance,NonPublic')
